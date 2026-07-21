@@ -26,9 +26,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      # No install step: the app + test suite are stdlib-only (see
-      # requirements.txt) except pywebview, which is only needed for the
-      # desktop window and irrelevant to running the tests.
+      - name: Install lint + dependency-scan tools
+        run: pip install ruff pip-audit
+
+      # Scoped to E9 (syntax errors) + F (pyflakes: undefined names, unused
+      # imports/vars) — real correctness signals, not style opinions.
+      - name: Lint (ruff)
+        run: ruff check app/ --select E9,F
+
+      # requirements.txt has exactly one real dependency (pywebview) — the
+      # rest of the app is stdlib-only — so this is fast and has nothing to
+      # hide behind.
+      - name: Dependency vulnerability scan (pip-audit)
+        run: pip-audit -r requirements.txt
+
+      # No install step for the tests themselves: the app + test suite are
+      # stdlib-only (see requirements.txt) except pywebview, which is only
+      # needed for the desktop window and irrelevant to running the tests.
       - name: Run Golden Dataset (126 security tests)
         run: python app/tests/golden_dataset.py
 

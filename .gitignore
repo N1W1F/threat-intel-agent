@@ -34,5 +34,5 @@ build/
 dist/
 Securo.exe
 .instance.lock
-submission/pptx-build/
+submission/
 SUBMISSION.md

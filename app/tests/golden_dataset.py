@@ -259,16 +259,15 @@ def dos_bad_length():
 @test("DoS", "ملف أصول أكبر من الحد", "رفض القراءة (SecurityError)",
       "حد حجم ملف عند القراءة", "A05 / Unrestricted Resource Consumption")
 def dos_oversized_inventory():
-    with tempfile.TemporaryDirectory() as td:
-        big = BASE_DIR / "_dos_probe.tmp"
-        try:
-            big.write_text("x" * (MAX_INVENTORY_BYTES + 10))
-            read_only_open(big)
-            return False, ""
-        except SecurityError:
-            return True, ""
-        finally:
-            big.unlink(missing_ok=True)
+    big = BASE_DIR / "_dos_probe.tmp"
+    try:
+        big.write_text("x" * (MAX_INVENTORY_BYTES + 10))
+        read_only_open(big)
+        return False, ""
+    except SecurityError:
+        return True, ""
+    finally:
+        big.unlink(missing_ok=True)
 
 @test("DoS", "جسم POST صغير سليم يُقرأ", "إرجاع البايتات",
       "القراءة ضمن الحد", "Baseline")

@@ -98,13 +98,25 @@ def lock_secrets_file() -> None:
 
 
 def save_public_config(updates: dict) -> dict:
-    """Persist only whitelisted non-secret keys from a client update."""
+    """Persist only whitelisted non-secret keys from a client update.
+
+    Every key is type-checked before it touches disk — a malformed value
+    (e.g. llm_model as an object, llm_enabled as a string) would otherwise
+    get written verbatim and only surface later as an opaque failure when
+    analyst.py hands it to Ollama's JSON payload."""
     cfg = _load(CONFIG_PATH)
     for k, v in updates.items():
         if k not in PUBLIC_CONFIG_KEYS:
             continue
         if k == "schedule_interval_days":
             v = v if v in ALLOWED_INTERVALS else 7
+        elif k in ("llm_enabled", "schedule_enabled"):
+            if not isinstance(v, bool):
+                continue
+        elif k == "llm_model":
+            if not isinstance(v, str) or not v.strip() or len(v) > 100:
+                continue
+            v = v.strip()
         cfg[k] = v
     CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     return public_config()

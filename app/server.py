@@ -85,6 +85,8 @@ STATIC_FILES = {
     "/app.js": "application/javascript; charset=utf-8",
     "/i18n.js": "application/javascript; charset=utf-8",
     "/icons.js": "application/javascript; charset=utf-8",
+    "/scene3d.js": "application/javascript; charset=utf-8",
+    "/vendor/three.min.js": "application/javascript; charset=utf-8",
     "/favicon.ico": "image/x-icon",
     "/icon.png": "image/png",
 }
@@ -106,7 +108,12 @@ def _normalize_product_key(name: str) -> str:
 def _has_available_update(product: str) -> bool:
     """Best-effort cross-reference against the last winget update scan —
     lets the decision tier reflect whether there's actually an update to
-    apply, instead of nagging about something with no fix available yet."""
+    apply, instead of nagging about something with no fix available yet.
+
+    Word-boundary matching, not raw substring: plain `in` containment made
+    "Git" match inside "GitHub Desktop" (and "Edge" inside "Microsoft Edge
+    WebView2 Runtime"), silently promoting unrelated findings to the urgent
+    tier because an unrelated package happened to share a name fragment."""
     key = _normalize_product_key(product)
     if not key:
         return False
@@ -114,7 +121,9 @@ def _has_available_update(product: str) -> bool:
         items = list(_upg_state["items"])
     for it in items:
         it_key = _normalize_product_key(it.get("Name", ""))
-        if it_key and (it_key in key or key in it_key):
+        if not it_key:
+            continue
+        if re.search(rf"\b{re.escape(it_key)}\b", key) or re.search(rf"\b{re.escape(key)}\b", it_key):
             return True
     return False
 
@@ -644,6 +653,26 @@ class Handler(BaseHTTPRequestHandler):
             update_ignore.ignore(pkg_id, match.get("Available", ""))
             with _upg_lock:
                 _upg_state["items"] = [it for it in _upg_state["items"] if it.get("Id") != pkg_id]
+            self._json({"status": "ok"})
+
+        elif self.path == "/api/upgrades/unignore":
+            # unignore() existed and was tested but had no route — a user
+            # who dismissed an update by mistake had no way back short of
+            # editing ignored_updates.json by hand.
+            raw = self._read_body()
+            if raw is None:
+                self._json({"status": "bad_request"}, 400)
+                return
+            try:
+                body = json.loads(raw or b"{}")
+            except json.JSONDecodeError:
+                self._json({"status": "bad_request"}, 400)
+                return
+            pkg_id = body.get("id")
+            if not isinstance(pkg_id, str):
+                self._json({"status": "bad_request"}, 400)
+                return
+            update_ignore.unignore(pkg_id)
             self._json({"status": "ok"})
 
         else:

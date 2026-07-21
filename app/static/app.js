@@ -326,8 +326,7 @@ async function fetchReport() {
 // --- orchestrator polling ------------------------------------------------
 function renderRunStatus() {
   const state = lastStatus;
-  runStatus.classList.toggle("is-running", !!state.running);
-  runStatus.classList.toggle("is-error", state.done && state.exit_code !== 0);
+  runStatus.dataset.state = state.running ? "running" : state.done ? (state.exit_code === 0 ? "done" : "error") : "ready";
   runStatusText.textContent = state.running ? t("statusRunning") : state.done ? (state.exit_code === 0 ? t("statusDone") : t("statusFailed")) : t("statusReady");
   const inv = state.inventory || {};
   const elapsed = state.running ? ` · ${state.elapsed_secs || 0} ${t("secondsAbbrev")}` : "";
@@ -341,8 +340,23 @@ function renderRunStatus() {
 }
 
 async function poll() {
-  const res = await fetch("/api/status");
-  const state = await res.json();
+  let state;
+  try {
+    const res = await fetch("/api/status");
+    if (!res.ok) throw new Error("status unavailable");
+    state = await res.json();
+  } catch {
+    // A network hiccup or backend restart mid-scan must not leave the UI
+    // stuck showing "Running…" forever with a spinning spinner and no way
+    // out short of a manual page reload — surface it and stop polling.
+    clearInterval(pollTimer);
+    pollTimer = null;
+    runBtn.disabled = false;
+    btnLabel.textContent = t("runScan");
+    spinner.hidden = true;
+    runStatusText.textContent = t("statusFailed");
+    return;
+  }
   lastStatus = state;
   renderRunStatus();
 
@@ -372,6 +386,12 @@ async function poll() {
 }
 
 runBtn.addEventListener("click", async () => {
+  // Disabled synchronously, before the first await — poll() only disables
+  // it after the first /api/status round-trip completes, leaving a window
+  // where a fast double-click fires /api/run twice.
+  runBtn.disabled = true;
+  btnLabel.textContent = t("running");
+  spinner.hidden = false;
   lastLogLen = -1;
   lastReportMarkdown = null;
   renderReport();
@@ -547,6 +567,7 @@ async function startApply(ids) {
 }
 
 scanBtn.addEventListener("click", async () => {
+  scanBtn.disabled = true;
   await postJSON("/api/upgrades/scan");
   if (!upgPollTimer) upgPollTimer = setInterval(fetchUpgradeStatus, 900);
   fetchUpgradeStatus();
@@ -786,13 +807,40 @@ function updateKpisFromReport() {
 const kpiDetail = document.getElementById("kpiDetail");
 let kpiDetailKind = null;
 
+// CSP is style-src 'self' with no 'unsafe-inline' — inline style="..."
+// attributes are silently dropped by the browser (zero width, no color,
+// no console warning visible via devtools-less inspection). Every bar here
+// is colored/sized AFTER insertion via .style.setProperty(), which is a
+// CSSOM call and exempt from style-src, matching the pattern already used
+// for .upd-prog-fill and the KPI card accent strips.
 function _bar(labelHtml, count, total, color) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  // kd-track/kd-fill MUST be block-level elements (div), not span: width/
+  // height are no-ops on non-replaced inline elements per the CSS spec, so
+  // a <span> here silently never shows any fill regardless of what JS sets
+  // on it — this is exactly why these bars rendered as flat, colorless
+  // lines while the (div-based) history-tab bars worked correctly.
   return `<div class="kd-bar">
-    <span class="kd-bar-label"><span class="kd-swatch" style="background:${color}"></span>${labelHtml}</span>
-    <span class="kd-track"><span class="kd-fill" style="width:${pct}%;background:${color}"></span></span>
+    <span class="kd-bar-label"><span class="kd-swatch" data-color="${escapeHtml(color)}"></span>${labelHtml}</span>
+    <div class="kd-track"><div class="kd-fill" data-color="${escapeHtml(color)}" data-pct="${pct}"></div></div>
     <span class="kd-count">${count}</span>
   </div>`;
+}
+
+// Walks any container just written via innerHTML and applies the
+// data-color/data-pct/data-seg-color hints as real inline styles through
+// the CSSOM — call this after every innerHTML assignment that used _bar()
+// or emits kd-scale-seg/hd-swatch/hd-fill markup.
+function _applyBarStyles(container) {
+  container.querySelectorAll("[data-color]").forEach((el) => {
+    el.style.setProperty("background", el.dataset.color);
+  });
+  container.querySelectorAll("[data-pct]").forEach((el) => {
+    el.style.setProperty("width", `${el.dataset.pct}%`);
+  });
+  container.querySelectorAll("[data-seg-color]").forEach((el) => {
+    el.style.setProperty("--seg-c", el.dataset.segColor);
+  });
 }
 
 function _decisionBreakdown() {
@@ -834,9 +882,9 @@ function renderKpiDetail(kind) {
         ${_bar(escapeHtml(band), score == null ? 0 : score, 100, bandColor)}
       </div>
       <div class="kd-scale">
-        <span class="kd-scale-seg${lvl === "danger" ? " is-current" : ""}" style="--seg-c:${cCrit}">0–44 · ${escapeHtml(t("kdBandPoor"))}</span>
-        <span class="kd-scale-seg${lvl === "warn" ? " is-current" : ""}" style="--seg-c:${cMed}">45–74 · ${escapeHtml(t("kdBandMid"))}</span>
-        <span class="kd-scale-seg${lvl === "good" ? " is-current" : ""}" style="--seg-c:${cGreen}">75–100 · ${escapeHtml(t("kdBandGood"))}</span>
+        <span class="kd-scale-seg${lvl === "danger" ? " is-current" : ""}" data-seg-color="${escapeHtml(cCrit)}">0–44 · ${escapeHtml(t("kdBandPoor"))}</span>
+        <span class="kd-scale-seg${lvl === "warn" ? " is-current" : ""}" data-seg-color="${escapeHtml(cMed)}">45–74 · ${escapeHtml(t("kdBandMid"))}</span>
+        <span class="kd-scale-seg${lvl === "good" ? " is-current" : ""}" data-seg-color="${escapeHtml(cGreen)}">75–100 · ${escapeHtml(t("kdBandGood"))}</span>
       </div>
       <p class="kd-note">${t("kdHealthNote")}</p>`;
   } else if (kind === "findings") {
@@ -877,6 +925,7 @@ function renderKpiDetail(kind) {
   }
   kpiDetail.innerHTML = html;
   kpiDetail.hidden = false;
+  _applyBarStyles(kpiDetail);
 }
 
 function toggleKpiDetail(card) {
@@ -900,17 +949,48 @@ document.querySelectorAll(".kpi-card[data-kpi]").forEach((card) => {
   });
 });
 
+// 3D perspective tilt toward the pointer — set via CSSOM (.style.setProperty,
+// CSP-exempt) not inline style="" strings. Disabled under reduced-motion.
+const _reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (!_reduceMotion) {
+  document.querySelectorAll(".kpi-card[data-kpi]").forEach((card) => {
+    card.addEventListener("mousemove", (e) => {
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      card.style.setProperty("--tilt-y", `${(px * 10).toFixed(2)}deg`);
+      card.style.setProperty("--tilt-x", `${(-py * 10).toFixed(2)}deg`);
+      card.style.setProperty("--lift", "-4px");
+    });
+    card.addEventListener("mouseleave", () => {
+      card.style.setProperty("--tilt-x", "0deg");
+      card.style.setProperty("--tilt-y", "0deg");
+      card.style.setProperty("--lift", "0px");
+    });
+  });
+}
+
 function renderHealthGauge(score) {
   if (score == null) {
     healthScoreNum.textContent = "—";
     healthRing.setAttribute("stroke-dashoffset", String(GAUGE_CIRC));
+    healthRing.style.stroke = "var(--muted)";
     setKpiAccent(kpiCardHealth, "warn");
+    if (window.scene3d) {
+      window.scene3d.orb && window.scene3d.orb.setScore(null, "warn");
+      window.scene3d.ambient && window.scene3d.ambient.setThreatLevel("warn");
+    }
     return;
   }
   healthScoreNum.textContent = score;
   healthRing.style.stroke = scoreColor(score);
   healthRing.setAttribute("stroke-dashoffset", String(GAUGE_CIRC * (1 - score / 100)));
-  setKpiAccent(kpiCardHealth, scoreLevel(score));
+  const lvl = scoreLevel(score);
+  setKpiAccent(kpiCardHealth, lvl);
+  if (window.scene3d) {
+    window.scene3d.orb && window.scene3d.orb.setScore(score, lvl);
+    window.scene3d.ambient && window.scene3d.ambient.setThreatLevel(lvl);
+  }
 }
 
 function snoozeOffsetIso(days) {
@@ -1034,7 +1114,12 @@ const histDetail = document.getElementById("histDetail");
 let lastHistory = [];
 let histSelected = -1;
 
-const SEV_COLOR = { CRITICAL: "#ff4d5e", HIGH: "#f5a524", MEDIUM: "#22d3ee", LOW: "#3ddc84", UNKNOWN: "#8b8398" };
+// Same mapping as the KPI drawer's cCrit/cHigh/cMed/cLow (var(--sev-*)) —
+// keep these two in sync; a past drift where MEDIUM was cyan here but
+// yellow in the KPI drawer (and LOW green here but cyan there) meant the
+// same severity showed two different colors depending which panel you had
+// open.
+const SEV_COLOR = { CRITICAL: "var(--sev-crit)", HIGH: "var(--sev-high)", MEDIUM: "var(--sev-med)", LOW: "var(--sev-low)", UNKNOWN: "var(--muted)" };
 const SEV_KEY = { CRITICAL: "sevCritical", HIGH: "sevHigh", MEDIUM: "sevMedium", LOW: "sevLow", UNKNOWN: "sevUnknown" };
 
 function _histCoords() {
@@ -1135,8 +1220,8 @@ function renderHistDetail(idx) {
     const n = sev[k] || 0;
     const pct = total ? Math.round((n / total) * 100) : 0;
     return `<div class="hd-row">
-      <span class="hd-label"><span class="hd-swatch" style="background:${SEV_COLOR[k]}"></span>${escapeHtml(t(SEV_KEY[k]))}</span>
-      <div class="hd-track"><div class="hd-fill" style="width:${pct}%;background:${SEV_COLOR[k]}"></div></div>
+      <span class="hd-label"><span class="hd-swatch" data-color="${escapeHtml(SEV_COLOR[k])}"></span>${escapeHtml(t(SEV_KEY[k]))}</span>
+      <div class="hd-track"><div class="hd-fill" data-color="${escapeHtml(SEV_COLOR[k])}" data-pct="${pct}"></div></div>
       <span class="hd-count">${n}</span>
     </div>`;
   }).join("");
@@ -1148,9 +1233,10 @@ function renderHistDetail(idx) {
       <div><span class="hd-key">${escapeHtml(t("histPointTotal"))}</span><strong>${p.total}</strong></div>
       <div><span class="hd-key">${escapeHtml(t("histPointDelta"))}</span>${prev ? deltaHtml : "—"}</div>
     </div>
-    <p class="hd-key" style="margin:10px 0 6px">${escapeHtml(t("histPointBreakdown"))}</p>
+    <p class="hd-key hd-breakdown-label">${escapeHtml(t("histPointBreakdown"))}</p>
     ${bars}`;
   histDetail.querySelector(".hd-close").addEventListener("click", () => selectHistPoint(-1));
+  _applyBarStyles(histDetail);
 }
 
 async function fetchHistory() {

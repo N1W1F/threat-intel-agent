@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Intel &amp; Asset Monitor — عرض تقديمي</title>
+<style>
+:root{
+  --bg:#0a0612; --bg-1:#0f0a1a; --bg-2:#150d22; --panel:#130b1f;
+  --border:#241536; --border-strong:#3d2456; --text:#ece7f5; --muted:#9a90b3;
+  --violet:#a855f7; --violet-dim:#7c3aed; --violet-deep:#2a1250;
+  --blood:#c0121f; --blood-dim:#7a0c14; --blood-bright:#ff4d5e;
+  --cyan:#22d3ee; --amber:#f5a524; --green:#3ddc84;
+  --sev-crit:#ff4d5e; --sev-high:#f5a524; --sev-med:#f2d94e; --sev-low:#22d3ee;
+  --font-ui:"Segoe UI",system-ui,sans-serif;
+  --font-mono:"Cascadia Mono","Consolas",monospace;
+  --radius-xl:14px; --radius-2xl:20px;
+  --ease-spring:cubic-bezier(.32,.72,0,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);overflow:hidden;}
+body::before{content:"";position:fixed;inset:-15%;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(680px 520px at 15% 8%, rgba(168,85,247,.12), transparent 60%),
+    radial-gradient(620px 520px at 90% 6%, rgba(192,18,31,.10), transparent 55%),
+    radial-gradient(700px 560px at 45% 100%, rgba(124,58,237,.09), transparent 60%),
+    var(--bg);
+  animation:meshDrift 26s ease-in-out infinite alternate;}
+@keyframes meshDrift{to{transform:translate3d(-2%,2%,0) scale(1.05);}}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.35;
+  background-image:linear-gradient(rgba(168,85,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,85,247,.04) 1px,transparent 1px);
+  background-size:42px 42px;
+  -webkit-mask:radial-gradient(circle at 50% 20%, #000, transparent 78%);
+          mask:radial-gradient(circle at 50% 20%, #000, transparent 78%);}
+
+.slide-deck{position:relative;width:100vw;height:100vh;overflow:hidden;}
+@media (min-width:769px){
+  .slide-deck{max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto;position:absolute;inset:0;}
+}
+.slide{position:absolute;width:100%;height:100%;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;text-align:center;padding:64px 76px;
+  opacity:0;visibility:hidden;transition:opacity .5s var(--ease-spring);}
+.slide.active{opacity:1;visibility:visible;}
+.slide-content{width:100%;max-width:1180px;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:20px;}
+
+.eyebrow{font-family:var(--font-mono);font-size:13px;letter-spacing:.14em;color:var(--violet);
+  text-transform:uppercase;border:1px solid var(--violet-dim);border-radius:999px;
+  padding:6px 16px;background:var(--violet-deep);}
+h1{font-size:clamp(32px,5vw,58px);font-weight:800;line-height:1.15;
+  background:linear-gradient(90deg,#fff,var(--violet) 60%,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+h2{font-size:clamp(24px,3.4vw,36px);font-weight:700;color:var(--text);}
+p{font-size:clamp(15px,1.6vw,19px);color:var(--muted);line-height:1.8;max-width:900px;}
+.lead{font-size:clamp(17px,2vw,22px);color:var(--text);line-height:1.7;max-width:880px;}
+strong{color:var(--violet);}
+.mono{font-family:var(--font-mono);}
+
+/* card language matching the app's kpi-card */
+.card{position:relative;background:linear-gradient(180deg,var(--bg-2),var(--panel));
+  border:1px solid var(--border);border-radius:var(--radius-xl);padding:22px 20px;
+  text-align:start;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 18px 40px -18px rgba(0,0,0,.6);}
+.card::before{content:"";position:absolute;inset-block-start:0;inset-inline:0;height:3px;
+  background:linear-gradient(90deg,var(--c1,var(--violet)),var(--c2,var(--cyan)));opacity:.9;}
+.card h3{font-size:17px;margin-bottom:6px;color:var(--text);}
+.card p{font-size:14px;color:var(--muted);max-width:none;}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:100%;}
+
+.kpi{text-align:center;}
+.kpi .num{font-family:var(--font-mono);font-size:38px;font-weight:800;line-height:1;margin-bottom:4px;}
+.kpi .lbl{font-size:12.5px;color:var(--muted);}
+
+.badge-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.badge{font-family:var(--font-mono);font-size:12.5px;padding:7px 14px;border-radius:999px;
+  border:1px solid var(--border-strong);background:var(--bg-1);color:var(--text);}
+.badge.violet{border-color:var(--violet-dim);color:var(--violet);}
+.badge.cyan{border-color:#1a5f6e;color:var(--cyan);}
+.badge.green{border-color:#1f5c3e;color:var(--green);}
+
+/* agent flow diagram */
+.flow{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;}
+.flow-top{display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:14px;color:var(--violet);}
+.flow-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.flow-node{background:var(--bg-1);border:1px solid var(--border-strong);border-radius:12px;
+  padding:12px 16px;font-size:13px;min-width:120px;box-shadow:0 8px 22px -12px rgba(168,85,247,.35);}
+.flow-node.danger{border-color:var(--blood);color:var(--blood-bright);}
+.flow-arrow{color:var(--muted);font-size:20px;align-self:center;}
+
+.footer-tag{position:absolute;bottom:26px;insetInlineStart:0;width:100%;text-align:center;
+  font-family:var(--font-mono);font-size:11.5px;color:var(--muted);opacity:.6;letter-spacing:.06em;}
+
+.progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--violet),var(--cyan));
+  transition:width .3s;z-index:1000;}
+.nav-controls{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:18px;z-index:1000;}
+.nav-btn{background:var(--bg-1);border:1px solid var(--border-strong);color:var(--text);
+  width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:16px;transition:.2s;}
+.nav-btn:hover{background:var(--violet-deep);border-color:var(--violet-dim);}
+.slide-counter{color:var(--muted);font-size:13px;font-family:var(--font-mono);}
+
+@media (max-width:768px){
+  .slide{padding:28px 20px;}
+  .grid-3,.grid-4{grid-template-columns:repeat(2,1fr);}
+  .grid-2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+<div class="slide-deck">
+
+  <!-- 1. Title -->
+  <div class="slide active">
+    <div class="slide-content">
+      <span class="eyebrow">Multi-Agent Security System</span>
+      <h1>Threat Intel &amp; Asset Monitor</h1>
+      <p class="lead">نظام وكلاء ذكاء اصطناعي يفحص جهازك، يطابق الثغرات الحقيقية، ويقرر أيها يستحق اهتمامك الآن — 100% محلي، 100% مجاني.</p>
+      <div class="badge-row">
+        <span class="badge violet">8 وكلاء متعاونين</span>
+        <span class="badge cyan">126 اختبار أمني حقيقي</span>
+        <span class="badge green">تطبيق سطح مكتب مستقل</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Problem -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">المشكلة</span>
+      <h2>متابعة ثغرات البرامج يدوياً — بطيئة، ومليئة بالضجيج</h2>
+      <div class="grid-3">
+        <div class="card"><h3>🕐 وقت مهدور</h3><p>مراجعة عشرات البرامج المثبتة واحداً واحداً ضد قواعد الثغرات يدوياً غير عملي على الإطلاق.</p></div>
+        <div class="card"><h3>📢 ضجيج كاذب</h3><p>مطابقة الاسم النصي وحدها تنتج مئات "التنبيهات" التي أغلبها غير قابل للاستغلال فعلياً.</p></div>
+        <div class="card"><h3>❓ لا قرار واضح</h3><p>أدوات الفحص التقليدية "تبلّغ" فقط — لا تقول لك أي عنصر عاجل فعلاً وأيها يمكن تجاهله بأمان.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Target user -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">المستخدم المستهدف</span>
+      <h2>أي شخص يملك جهاز Windows ويريد يعرف وضعه الأمني الحقيقي</h2>
+      <div class="grid-3">
+        <div class="card"><h3>👤 مستخدم فردي</h3><p>ما عنده خبرة أمنية عميقة، يبي رقم واضح وقرار مباشر — مو تقرير تقني معقّد.</p></div>
+        <div class="card"><h3>💻 مطوّر / IT صغير</h3><p>يدير عدة أجهزة، يحتاج فحصاً دورياً تلقائياً بدون منصة سحابية مدفوعة.</p></div>
+        <div class="card"><h3>🎓 طالب أمن سيبراني</h3><p>يبي يشوف نظام وكلاء حقيقي متعدد الأدوار، بحدود صلاحية صارمة، وسط تعلّم فعلي.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Solution -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">فكرة الحل</span>
+      <h2>وكلاء متخصصون، كل واحد بصلاحية واحدة فقط — والقرار النهائي دائماً لك</h2>
+      <p class="lead">النظام يفحص، يطابق، يقيّم استغلال حقيقي (CISA KEV)، ويحسب <strong>مؤشر صحة أمنية</strong> من 0 إلى 100 يعكس الخطر <strong>القابل للتصرف فعلياً</strong> — لا عدد التطابقات الخام. وكيل القرار نفسه <strong>بلا أي صلاحية تنفيذ</strong> إطلاقاً.</p>
+      <div class="grid-4">
+        <div class="card kpi"><div class="num" style="color:var(--green)">76</div><div class="lbl">مؤشر الصحة</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--blood-bright)">126</div><div class="lbl">إجمالي النتائج</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--amber)">صفر</div><div class="lbl">تنفيذ تلقائي بلا إذنك</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--cyan)">100%</div><div class="lbl">محلي وبدون تكلفة</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. How it works — agents -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">طريقة عمل النظام</span>
+      <h2>8 وكلاء، كل واحد بدور واحد وصلاحية واحدة</h2>
+      <div class="grid-4">
+        <div class="card" style="--c1:var(--violet)"><h3>🧭 Orchestrator</h3><p>ينسّق التتابع بين الوكلاء ويجمع النتائج.</p></div>
+        <div class="card" style="--c1:var(--cyan)"><h3>🗂️ Asset Auditor</h3><p>يقرأ البرامج المثبتة عبر winget — قراءة فقط.</p></div>
+        <div class="card" style="--c1:var(--cyan)"><h3>🛰️ Threat Hunter</h3><p>يبحث ثغرات CVE من NVD — شبكة فقط، مضيف ثابت.</p></div>
+        <div class="card" style="--c1:var(--blood-bright)"><h3>🚨 KEV Checker</h3><p>يطابق قائمة CISA للثغرات المستغلة فعلياً بالعالم الحقيقي.</p></div>
+        <div class="card" style="--c1:var(--amber)"><h3>⚖️ Decision Agent</h3><p>يصنّف عاجل/روتيني، ويحسب مؤشر الصحة — <strong>صفر صلاحية تنفيذ</strong>.</p></div>
+        <div class="card" style="--c1:var(--violet)"><h3>📝 Remediation</h3><p>يكتب التقرير النهائي — مسار ملف ثابت واحد فقط.</p></div>
+        <div class="card" style="--c1:var(--green)"><h3>🔄 Package Manager</h3><p>يفحص ويطبّق تحديثات winget — يرفض أي معرّف غير مفحوص.</p></div>
+        <div class="card" style="--c1:var(--cyan)"><h3>🤖 Analyst (LLM)</h3><p>يشرح، يجاوب أسئلتك، يعيد التقييم — عبر Ollama محلي.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Workflow diagram -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">تصميم الـ Workflow</span>
+      <h2>تدفّق العمل من الفحص حتى القرار</h2>
+      <div class="flow">
+        <div class="flow-node" style="border-color:var(--violet-dim);color:var(--violet)">🧭 Orchestrator يبدأ الفحص</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-row">
+          <div class="flow-node">🗂️ Asset Auditor<br><span class="mono" style="color:var(--muted);font-size:11px">winget list</span></div>
+          <div class="flow-node">🛰️ Threat Hunter<br><span class="mono" style="color:var(--muted);font-size:11px">NVD API</span></div>
+          <div class="flow-node danger">🚨 KEV Checker<br><span class="mono" style="font-size:11px">CISA KEV</span></div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node" style="border-color:var(--amber);color:var(--amber)">⚖️ Decision Agent — عاجل / روتيني / معلوماتي + مؤشر الصحة</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-row">
+          <div class="flow-node">📝 تقرير نهائي</div>
+          <div class="flow-node">🔔 إشعار Windows (إن كان عاجل)</div>
+          <div class="flow-node">👤 قرارك: تحديث أو تأجيل</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Tools + results -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">الأدوات المستخدمة + النتائج</span>
+      <h2>مكدّس تقني بسيط، بلا أي تكلفة تشغيل</h2>
+      <div class="badge-row">
+        <span class="badge">Python</span><span class="badge">NVD API</span><span class="badge">CISA KEV</span>
+        <span class="badge">winget</span><span class="badge violet">Ollama (LLM محلي)</span>
+        <span class="badge cyan">Three.js (محلي)</span><span class="badge green">GitHub Actions CI/CD</span>
+      </div>
+      <div class="grid-4" style="margin-top:6px">
+        <div class="card kpi"><div class="num" style="color:var(--green)">126/126</div><div class="lbl">اختبار أمني ناجح</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--violet)">32</div><div class="lbl">فئة اختبار هجوم</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--cyan)">0</div><div class="lbl">اتصال إنترنت وقت العرض ثلاثي الأبعاد</div></div>
+        <div class="card kpi"><div class="num" style="color:var(--amber)">100%</div><div class="lbl">نجاح CI عند كل push</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Challenges + future -->
+  <div class="slide">
+    <div class="slide-content">
+      <span class="eyebrow">التحديات والتطوير المستقبلي</span>
+      <h2>ماواجهناه، ووين نتجه</h2>
+      <div class="grid-2">
+        <div class="card" style="--c1:var(--blood-bright)">
+          <h3>🧩 تحديات حقيقية واجهناها</h3>
+          <p>مطابقة نصية للثغرات تنتج ضجيجاً هائلاً — عولجت بمؤشر صحة قائم على الخطر القابل للتصرف. CSP صارمة صعّبت أي مكتبة خارجية — عولجت بتخزين محلي كامل. اختبار محاكاة وضع الـexe كسر تطابق نوع استثناء حقيقي بالإنتاج — أُصلح بفصل منطق نقي بلا reload.</p>
+        </div>
+        <div class="card" style="--c1:var(--green)">
+          <h3>🚀 التطوير المستقبلي</h3>
+          <p>مطابقة CPE دقيقة بدل الاسم النصي لتقليل الضجيج أكثر. لوحة إدارة كاملة للتحديثات المُتجاهَلة. دعم Linux/macOS. تصدير التقرير PDF للمشاركة المؤسسية.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-controls">
+  <button class="nav-btn" onclick="prevSlide()">→</button>
+  <span class="slide-counter"><span id="current">1</span> / <span id="total">8</span></span>
+  <button class="nav-btn" onclick="nextSlide()">←</button>
+</div>
+
+<script>
+let current = 1;
+const total = document.querySelectorAll('.slide').length;
+document.getElementById('total').textContent = total;
+function showSlide(n){
+  if(n<1)n=1; if(n>total)n=total; current=n;
+  document.querySelectorAll('.slide').forEach((s,i)=>s.classList.toggle('active', i===n-1));
+  document.getElementById('current').textContent=n;
+  document.getElementById('progressBar').style.width=(n/total*100)+'%';
+}
+function nextSlide(){showSlide(current+1);}
+function prevSlide(){showSlide(current-1);}
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();prevSlide();}
+  if(e.key==='ArrowLeft'){e.preventDefault();nextSlide();}
+});
+document.addEventListener('click',(e)=>{ if(!e.target.closest('.nav-controls')) nextSlide(); });
+showSlide(1);
+</script>
+</body>
+</html>

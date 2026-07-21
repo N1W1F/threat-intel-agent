@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<canvas id="scene3dBg" aria-hidden="true"></canvas>
 <div class="app-shell">
 
   <aside class="sidebar" id="sidebar">
@@ -68,6 +69,7 @@
     <section class="kpi-row" id="kpiRow">
       <div class="kpi-card kpi-gauge" data-kpi="health" role="button" tabindex="0" aria-expanded="false">
         <div class="gauge-wrap">
+          <canvas id="healthOrb3d" aria-hidden="true"></canvas>
           <svg viewBox="0 0 120 120" width="84" height="84">
             <circle cx="60" cy="60" r="50" class="gauge-track"></circle>
             <circle id="healthRing" cx="60" cy="60" r="50" class="gauge-fill" transform="rotate(-90 60 60)"></circle>
@@ -276,6 +278,8 @@
 </div>
 <script src="/i18n.js"></script>
 <script src="/icons.js"></script>
+<script src="/vendor/three.min.js"></script>
+<script src="/scene3d.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

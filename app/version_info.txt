@@ -1,0 +1,38 @@
+# UTF-8
+#
+# Windows version-resource info for the packaged exe. Required by SignPath
+# Foundation's artifact-configuration policy (product name + version must be
+# set and consistent across builds) — PyInstaller embeds nothing here by
+# default, so this file plugs in via `--version-file`.
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 0, 0, 0),
+    prodvers=(1, 0, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x4,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [
+            StringStruct(u'CompanyName', u'Securo'),
+            StringStruct(u'FileDescription', u'Securo - Multi-Agent Security Scanner'),
+            StringStruct(u'FileVersion', u'1.0.0.0'),
+            StringStruct(u'InternalName', u'Securo'),
+            StringStruct(u'LegalCopyright', u'Apache License 2.0'),
+            StringStruct(u'OriginalFilename', u'Securo.exe'),
+            StringStruct(u'ProductName', u'Securo'),
+            StringStruct(u'ProductVersion', u'1.0.0.0'),
+          ],
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [1033, 1200])]),
+  ],
+)

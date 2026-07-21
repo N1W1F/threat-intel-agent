@@ -25,6 +25,7 @@ def main() -> int:
         "--onefile",
         "--windowed",
         "--icon", str(APP_DIR / "app.ico"),
+        "--version-file", str(APP_DIR / "version_info.txt"),
         "--add-data", f"{APP_DIR / 'static'};static",
         "--add-data", f"{APP_DIR / 'app.ico'};.",
         "--distpath", str(BASE_DIR / "dist"),
